@@ -66,32 +66,48 @@ invincible_start_time = 0
 
 grid = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBER_OF_GRIDS)]
 
-def draw_screen(orb_pos):
-    orb_center = (orb_pos[0] + 0.5) * GRID_SIZE, (orb_pos[1] + 0.5) * GRID_SIZE
-    
-    # Define the center blocking region
+# Define grid variables for each level
+grid_level_1 = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBER_OF_GRIDS)]
+grid_level_2 = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBER_OF_GRIDS)]
+
+# Initialize the grids with obstacles
+def initialize_grids():
+    # Level 1: Define the center blocking region
     center_x = (SCREEN_WIDTH - GRID_SIZE) // 2
     center_y = (SCREEN_HEIGHT - GRID_SIZE) // 2
-    top_left_x = center_x - CENTER_BOX_SIZE // 2 + 0.5 * GRID_SIZE
-    top_left_y = center_y - CENTER_BOX_SIZE // 2 + 0.5 * GRID_SIZE
-    bottom_right_x = top_left_x + CENTER_BOX_SIZE
-    bottom_right_y = top_left_y + CENTER_BOX_SIZE
+    top_left_x = center_x - CENTER_BOX_SIZE // 2 // GRID_SIZE
+    top_left_y = center_y - CENTER_BOX_SIZE // 2 // GRID_SIZE
+    bottom_right_x = top_left_x + (CENTER_BOX_SIZE // GRID_SIZE)
+    bottom_right_y = top_left_y + (CENTER_BOX_SIZE // GRID_SIZE)
+
+    for x in range(NUMBER_OF_GRIDS):
+        for y in range(NUMBER_OF_GRIDS):
+            if top_left_x <= x < bottom_right_x and top_left_y <= y < bottom_right_y:
+                grid_level_1[x][y] = BLACK  # Set black squares for Level 1
+
+    # Level 2: Define a vertical line in the center
+    line_x = NUMBER_OF_GRIDS // 2
+    for y in range(NUMBER_OF_GRIDS):
+        grid_level_2[line_x][y] = BLACK  # Set black squares for Level 2
+
+def draw_screen(orb_pos, level=1):
+    orb_center = (orb_pos[0] + 0.5) * GRID_SIZE, (orb_pos[1] + 0.5) * GRID_SIZE
+    
+    # Select the appropriate grid based on the level
+    current_grid = grid_level_1 if level == 1 else grid_level_2
 
     for x in range(NUMBER_OF_GRIDS):
         for y in range(NUMBER_OF_GRIDS):
             square_center = (x + 0.5) * GRID_SIZE, (y + 0.5) * GRID_SIZE
-            if can_see(orb_center, square_center, top_left_x, top_left_y, bottom_right_x, bottom_right_y):
+            if can_see(orb_center, square_center, current_grid):
                 grid[x][y] = WHITE  # Set color to white if visible
             else:
-                grid[x][y] = DARK_GREY  # Set color to dark grey if not visible
+                grid[x][y] = current_grid[x][y]  # Use the current grid's color
             
             pygame.draw.rect(screen, grid[x][y], (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE))
             pygame.draw.rect(screen, BLACK, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
-    # Draw center blocking square
-    pygame.draw.rect(screen, BLACK, (top_left_x, top_left_y, CENTER_BOX_SIZE, CENTER_BOX_SIZE))
-
-def can_see(orb_center, square_center, top_left_x, top_left_y, bottom_right_x, bottom_right_y):
+def can_see(orb_center, square_center, current_grid):
     x1, y1 = orb_center
     x2, y2 = square_center
 
@@ -104,9 +120,12 @@ def can_see(orb_center, square_center, top_left_x, top_left_y, bottom_right_x, b
         px = x1 + dx * step / steps
         py = y1 + dy * step / steps
 
-        # Check if this point falls inside the center blocking region
-        if top_left_x <= px <= bottom_right_x and top_left_y <= py <= bottom_right_y:
-            return False
+        # Check if this point falls inside any black square
+        grid_x = int(px // GRID_SIZE)
+        grid_y = int(py // GRID_SIZE)
+        if 0 <= grid_x < NUMBER_OF_GRIDS and 0 <= grid_y < NUMBER_OF_GRIDS:
+            if current_grid[grid_x][grid_y] == BLACK:
+                return False
 
     return True
 
@@ -254,7 +273,7 @@ def coin_pos():
     # If no valid position found, return a default position (e.g., top-left corner)
     return (0, 0)
 
-def game_loop():
+def game_loop(level=1):
     global time_last_moved, score, time_remaining, is_invincible, invincible_start_time
 
     prev_time = time.time()
@@ -322,7 +341,7 @@ def game_loop():
         screen.fill(DARK_GREY)
 
         # Draw the grid and center blocking region
-        draw_screen((mx, my))
+        draw_screen((mx, my), level)
 
         # Draw the orb
         if mx == NUMBER_OF_GRIDS-1:
@@ -400,13 +419,17 @@ pygame.display.set_caption("Menu")
 
 BG = pygame.image.load("Light-game/sprites/Black.png")
 
+def tutorial():
+    pygame.quit()
+    sys.exit()
+
 def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("Light-game/sprites/font.ttf", size)
 
 def main_menu():
     global button_surface  # Declare button_surface as global if it's defined outside this function
     button_surface = pygame.image.load("Light-game/sprites/grey box.png")  # Ensure it's loaded here
-    button_surface = pygame.transform.scale(button_surface, (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 10))  # Scale it here
+    button_surface = pygame.transform.scale(button_surface, (SCREEN_WIDTH *0.7, SCREEN_HEIGHT / 10))  # Scale it here
 
     while True:
         screen.blit(BG, (0, 0))
@@ -416,16 +439,16 @@ def main_menu():
         MENU_TEXT = get_font(SCREEN_HEIGHT // 15).render("MAIN MENU", True, "#b68f40")
         MENU_RECT = MENU_TEXT.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.1))
 
-        PLAY_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.4), 
-                             text_input="PLAY", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
-        OPTIONS_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.6), 
-                                text_input="TUTORIAL", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
+        LEVEL_SELECT_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.4), 
+                                      text_input="LEVEL SELECT", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
+        TUTORIAL_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.6), 
+                                 text_input="TUTORIAL", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
         QUIT_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.8), 
                              text_input="QUIT", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
 
         screen.blit(MENU_TEXT, MENU_RECT)
 
-        for button in [PLAY_BUTTON, OPTIONS_BUTTON, QUIT_BUTTON]:
+        for button in [LEVEL_SELECT_BUTTON, TUTORIAL_BUTTON, QUIT_BUTTON]:
             button.changeColor(MENU_MOUSE_POS)
             button.update(screen)
         
@@ -434,10 +457,11 @@ def main_menu():
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if PLAY_BUTTON.checkForInput(MENU_MOUSE_POS):
-                    reset_game_state()  # Reset game state before starting the game loop
-                    main_music()
-                    game_loop()
+                if LEVEL_SELECT_BUTTON.checkForInput(MENU_MOUSE_POS):
+                    level_select()  # Go to level selection
+                if TUTORIAL_BUTTON.checkForInput(MENU_MOUSE_POS):
+                    # Call the tutorial function here (assuming you have one)
+                    tutorial()  # Replace with your tutorial function
                 if QUIT_BUTTON.checkForInput(MENU_MOUSE_POS):
                     pygame.quit()
                     sys.exit()
@@ -503,5 +527,47 @@ def remove_score(score_id):
         cursor = conn.cursor()
         cursor.execute('DELETE FROM scores WHERE id = ?', (score_id,))
         conn.commit()
+
+def level_select():
+    while True:
+        screen.fill(BLACK)
+        MENU_MOUSE_POS = pygame.mouse.get_pos()
+
+        LEVEL_TEXT = get_font(SCREEN_HEIGHT // 15).render("SELECT LEVEL", True, "#b68f40")
+        LEVEL_RECT = LEVEL_TEXT.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.1))
+
+        LEVEL_1_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.4), 
+                                text_input="LEVEL 1", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
+        LEVEL_2_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.6), 
+                                text_input="LEVEL 2", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
+        BACK_BUTTON = Button(image=button_surface, pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT * 0.8), 
+                             text_input="BACK", font=get_font(SCREEN_HEIGHT // 20), base_color="#d7fcd4", hovering_color="White")
+
+        screen.blit(LEVEL_TEXT, LEVEL_RECT)
+
+        for button in [LEVEL_1_BUTTON, LEVEL_2_BUTTON, BACK_BUTTON]:
+            button.changeColor(MENU_MOUSE_POS)
+            button.update(screen)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if LEVEL_1_BUTTON.checkForInput(MENU_MOUSE_POS):
+                    reset_game_state()
+                    main_music()
+                    game_loop(level=1)  # Start level 1
+                if LEVEL_2_BUTTON.checkForInput(MENU_MOUSE_POS):
+                    reset_game_state()
+                    main_music()
+                    game_loop(level=2)  # Start level 2
+                if BACK_BUTTON.checkForInput(MENU_MOUSE_POS):
+                    main_menu()  # Go back to main menu
+
+        pygame.display.update()
+
+# Call the initialize function at the start of the game
+initialize_grids()
 
 main_menu()
