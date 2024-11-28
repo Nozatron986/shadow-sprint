@@ -277,25 +277,11 @@ def main_music():
     return
 
 def coin_pos(level):
-    max_attempts = 100  # Maximum attempts to find a valid position
-    attempts = 0
-    
-    while attempts < max_attempts:
+    while True:
         ret = (random.randint(-2, NUMBER_OF_GRIDS-3), random.randint(-2, NUMBER_OF_GRIDS-3))
-        
-        # Check if the generated position is within the center blocking region
-        center_x_start = (SCREEN_WIDTH - CENTER_BOX_SIZE) // 2 // GRID_SIZE
-        center_y_start = (SCREEN_HEIGHT - CENTER_BOX_SIZE) // 2 // GRID_SIZE
-        center_x_end = center_x_start + (CENTER_BOX_SIZE // GRID_SIZE)
-        center_y_end = center_y_start + (CENTER_BOX_SIZE // GRID_SIZE)
 
-        if ret not in bad_tiles[level-1] and not (center_x_start <= ret[0] < center_x_end and center_y_start <= ret[1] < center_y_end):
-            return ret  # Return the valid position
-
-        attempts += 1
-
-    # If no valid position found, return a default position (e.g., top-left corner)
-    return (0, 0)
+        if ret not in bad_tiles[level-1]:
+            return ret
 
 def game_loop(level=1):
     global time_last_moved, score, time_remaining, is_invincible, invincible_start_time
