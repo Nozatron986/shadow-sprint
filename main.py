@@ -5,7 +5,6 @@ import random
 import math
 import time
 import sqlite3
-import asyncio
 
 DB_DIRECTORY = os.path.expanduser("Light-game/game_data")
 DB_FILE = os.path.join(DB_DIRECTORY, 'scores.db')
@@ -32,16 +31,14 @@ GRID_SIZE = SCREEN_HEIGHT // NUMBER_OF_GRIDS
 NUMBER_OF_BOXES_IN_CENTER = 4   
 CENTER_BOX_SIZE = NUMBER_OF_BOXES_IN_CENTER * GRID_SIZE
 
-bad_tiles_min_char = (NUMBER_OF_GRIDS - NUMBER_OF_BOXES_IN_CENTER) / 2 - 1
-bad_tiles_min_orb = (NUMBER_OF_GRIDS - NUMBER_OF_BOXES_IN_CENTER) / 2 - 2
-bad_tiles_max = (NUMBER_OF_GRIDS + NUMBER_OF_BOXES_IN_CENTER) / 2
+bad_tiles = [[], []]  # List to hold bad tiles for level 1 and level 2
 
-bad_tiles = [[(x, y) for x in range(NUMBER_OF_GRIDS) for y in range(NUMBER_OF_GRIDS) if (bad_tiles_min_char < x < bad_tiles_max and bad_tiles_min_char < y < bad_tiles_max)], 
-             [(x, y) for x in range(NUMBER_OF_GRIDS) for y in range(NUMBER_OF_GRIDS) if (bad_tiles_min_orb < x < bad_tiles_max and bad_tiles_min_orb < y < bad_tiles_max)]]
+# Define the boundaries based on the positions of the black tiles
+bad_tiles_min_orb = 0  # Minimum x or y coordinate for good tiles
+bad_tiles_max = NUMBER_OF_GRIDS - 1  # Maximum x or y coordinate for good tiles
 
-available_good_tiles = [(x, y) for x in range(NUMBER_OF_GRIDS) for y in range(NUMBER_OF_GRIDS)
-						if (bad_tiles_min_orb < x < bad_tiles_max and (y == bad_tiles_min_orb or y == bad_tiles_max)) or
-						((x == bad_tiles_min_orb or x == bad_tiles_max) and bad_tiles_min_orb < y < bad_tiles_max)]
+# Update available_good_tiles based on the defined boundaries
+available_good_tiles = []
 
 DEFAULT_LIGHT_SIZE = (GRID_SIZE*2, GRID_SIZE*2)
 
@@ -72,40 +69,44 @@ grid_level_2 = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBE
 
 # Initialize the grids with obstacles
 def initialize_grids():
-    # Level 1: Define the center blocking region
-    center_x = (SCREEN_WIDTH - GRID_SIZE) // 2
-    center_y = (SCREEN_HEIGHT - GRID_SIZE) // 2
-    top_left_x = center_x - CENTER_BOX_SIZE // 2 // GRID_SIZE
-    top_left_y = center_y - CENTER_BOX_SIZE // 2 // GRID_SIZE
-    bottom_right_x = top_left_x + (CENTER_BOX_SIZE // GRID_SIZE)
-    bottom_right_y = top_left_y + (CENTER_BOX_SIZE // GRID_SIZE)
+    global bad_tiles  # Use the global bad_tiles variable
 
-    for x in range(NUMBER_OF_GRIDS):
-        for y in range(NUMBER_OF_GRIDS):
-            if top_left_x <= x < bottom_right_x and top_left_y <= y < bottom_right_y:
-                grid_level_1[x][y] = BLACK  # Set black squares for Level 1
+    # Clear previous bad tiles
+    bad_tiles = [[], []]
 
-    # Level 2: Define a vertical line in the center
+    # Level 1: Define a 4x4 grid in the center
+    center_x = NUMBER_OF_GRIDS // 2
+    center_y = NUMBER_OF_GRIDS // 2
+    for x in range(center_x - 2, center_x + 2):  # 4 tiles wide
+        for y in range(center_y - 2, center_y + 2):  # 4 tiles tall
+            grid_level_1[x][y] = BLACK  # Set black squares for Level 1
+            bad_tiles[0].append((x, y))  # Add to bad tiles for Level 1
+
+    # Level 2: Define a vertical line in the center, only 6 tiles long
     line_x = NUMBER_OF_GRIDS // 2
-    for y in range(NUMBER_OF_GRIDS):
+    for y in range(NUMBER_OF_GRIDS // 2 - 3, NUMBER_OF_GRIDS // 2 + 3):  # 6 tiles long
         grid_level_2[line_x][y] = BLACK  # Set black squares for Level 2
+        bad_tiles[1].append((line_x, y))  # Add to bad tiles for Level 2
 
-def draw_screen(orb_pos, level=1):
-    orb_center = (orb_pos[0] + 0.5) * GRID_SIZE, (orb_pos[1] + 0.5) * GRID_SIZE
-    
-    # Select the appropriate grid based on the level
-    current_grid = grid_level_1 if level == 1 else grid_level_2
+    # Avoid modifying the list while iterating over it
+    for k in range(2):
+        new_bad_tiles = []  # Create a new list to hold additional bad tiles
+        for x, y in bad_tiles[k]:
+            if (x - 1, y) not in bad_tiles[k]:  # Check both sides
+                new_bad_tiles.append((x - 1, y))
+            if (x, y - 1) not in bad_tiles[k]:  # Check both sides
+                new_bad_tiles.append((x, y - 1))
+            if (x - 1, y - 1) not in bad_tiles[k]:  # Check both sides
+                new_bad_tiles.append((x - 1, y - 1))
+        bad_tiles[k].extend(new_bad_tiles)  # Add new bad tiles to the list
 
-    for x in range(NUMBER_OF_GRIDS):
-        for y in range(NUMBER_OF_GRIDS):
-            square_center = (x + 0.5) * GRID_SIZE, (y + 0.5) * GRID_SIZE
-            if can_see(orb_center, square_center, current_grid):
-                grid[x][y] = WHITE  # Set color to white if visible
-            else:
-                grid[x][y] = current_grid[x][y]  # Use the current grid's color
-            
-            pygame.draw.rect(screen, grid[x][y], (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE))
-            pygame.draw.rect(screen, BLACK, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
+    return
+
+def update_available_good_tiles():
+    global available_good_tiles
+    available_good_tiles = [[(x, y) for x in range(NUMBER_OF_GRIDS) for y in range(NUMBER_OF_GRIDS) if (x, y) not in bad_tiles[0] and (x, y) not in bad_tiles[0]], 
+                            [(x, y) for x in range(NUMBER_OF_GRIDS) for y in range(NUMBER_OF_GRIDS) if (x, y) not in bad_tiles[1] and (x, y) not in bad_tiles[1]]]
+    return
 
 def can_see(orb_center, square_center, current_grid):
     x1, y1 = orb_center
@@ -125,9 +126,32 @@ def can_see(orb_center, square_center, current_grid):
         grid_y = int(py // GRID_SIZE)
         if 0 <= grid_x < NUMBER_OF_GRIDS and 0 <= grid_y < NUMBER_OF_GRIDS:
             if current_grid[grid_x][grid_y] == BLACK:
-                return False
+                return False  # If the orb's light hits a black tile, it cannot see through
 
     return True
+
+def draw_screen(orb_pos, level=1):
+    orb_center = (orb_pos[0] + 0.5) * GRID_SIZE, (orb_pos[1] + 0.5) * GRID_SIZE
+    
+    # Select the appropriate grid based on the level
+    current_grid = grid_level_1 if level == 1 else grid_level_2
+
+    for x in range(NUMBER_OF_GRIDS):
+        for y in range(NUMBER_OF_GRIDS):
+            square_center = (x + 0.5) * GRID_SIZE, (y + 0.5) * GRID_SIZE
+            
+            # Check if the orb can see the square
+            if can_see(orb_center, square_center, current_grid):
+                grid[x][y] = WHITE  # Set color to white if visible
+            else:
+                grid[x][y] = current_grid[x][y]  # Use the current grid's color
+            
+            # Ensure that black tiles remain black
+            if current_grid[x][y] == BLACK:
+                grid[x][y] = BLACK
+
+            pygame.draw.rect(screen, grid[x][y], (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE))
+            pygame.draw.rect(screen, BLACK, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
 def advance_timer():
 	global top_score, score, time_remaining
@@ -252,7 +276,7 @@ def main_music():
     # pygame.mixer.music.play()
     return
 
-def coin_pos():
+def coin_pos(level):
     max_attempts = 100  # Maximum attempts to find a valid position
     attempts = 0
     
@@ -265,7 +289,7 @@ def coin_pos():
         center_x_end = center_x_start + (CENTER_BOX_SIZE // GRID_SIZE)
         center_y_end = center_y_start + (CENTER_BOX_SIZE // GRID_SIZE)
 
-        if ret not in bad_tiles[0] and not (center_x_start <= ret[0] < center_x_end and center_y_start <= ret[1] < center_y_end):
+        if ret not in bad_tiles[level-1] and not (center_x_start <= ret[0] < center_x_end and center_y_start <= ret[1] < center_y_end):
             return ret  # Return the valid position
 
         attempts += 1
@@ -277,7 +301,7 @@ def game_loop(level=1):
     global time_last_moved, score, time_remaining, is_invincible, invincible_start_time
 
     prev_time = time.time()
-    coin = coin_pos()
+    coin = coin_pos(level)
     screen.fill(BLACK)
     orb_number = 0
     running = True
@@ -314,7 +338,7 @@ def game_loop(level=1):
                 character_pos[0] += 1
                 time_last_moved = time.time()
             
-            if (character_pos[0], character_pos[1]) in bad_tiles[0]:
+            if (character_pos[0], character_pos[1]) in bad_tiles[level-1]:
                 character_pos = prev_pos
 
             if grid[character_pos[0]][character_pos[1]] == WHITE and not is_invincible:
@@ -334,8 +358,12 @@ def game_loop(level=1):
         mx, my = mx // GRID_SIZE, my // GRID_SIZE
 
         # Avoid the center blocking region for the orb
-        if (mx, my) in bad_tiles[1]:
-            mx, my = closest((mx, my), available_good_tiles)
+        if (mx, my) in bad_tiles[level-1]:
+            # Ensure available_good_tiles[level-1] is a list of tuples
+            if isinstance(available_good_tiles[level-1], list):
+                mx, my = closest((mx, my), available_good_tiles[level-1])
+            else:
+                print("Error: available_good_tiles[level-1] is not a list.")
 
         # Clear the screen
         screen.fill(DARK_GREY)
@@ -354,7 +382,7 @@ def game_loop(level=1):
         # Check if the character is on the same square as the coin
         if character_pos[0] == coin[0] and character_pos[1] == coin[1]:
             score += 1
-            coin = coin_pos()
+            coin = coin_pos(level)
 
         # Draw the character sprite (locked to grid)
         screen.blit(
@@ -567,7 +595,7 @@ def level_select():
 
         pygame.display.update()
 
-# Call the initialize function at the start of the game
 initialize_grids()
+update_available_good_tiles()
 
 main_menu()
