@@ -63,7 +63,6 @@ invincible_start_time = 0
 
 grid = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBER_OF_GRIDS)]
 
-# Define grid variables for each level
 grid_level_1 = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBER_OF_GRIDS)]
 grid_level_2 = [[DARK_GREY for _ in range(NUMBER_OF_GRIDS)] for _ in range(NUMBER_OF_GRIDS)]
 
@@ -270,15 +269,15 @@ def closest(position, targets):
     return smallest_target
 
 def main_music():
-    # pygame.mixer.init()
-    # pygame.mixer.music.load('Light-game/sprites/Pure Darkness.mp3')
-	
-    # pygame.mixer.music.play()
-    return
+    pygame.mixer.init()
+    pygame.mixer.music.load('Light-game/sprites/Pure Darkness.mp3')
+    pygame.mixer.music.play()
+    pygame.mixer.music.load('Light-game/sprites/Intro.mp3')
+    pygame.mixer.music.play()
 
 def coin_pos(level):
     while True:
-        ret = (random.randint(-2, NUMBER_OF_GRIDS-3), random.randint(-2, NUMBER_OF_GRIDS-3))
+        ret = (random.randint(0, NUMBER_OF_GRIDS-1), random.randint(0, NUMBER_OF_GRIDS-1))
 
         if ret not in bad_tiles[level-1]:
             return ret
@@ -324,7 +323,7 @@ def game_loop(level=1):
                 character_pos[0] += 1
                 time_last_moved = time.time()
             
-            if (character_pos[0], character_pos[1]) in bad_tiles[level-1]:
+            if grid[character_pos[0]][character_pos[1]] == BLACK:
                 character_pos = prev_pos
 
             if grid[character_pos[0]][character_pos[1]] == WHITE and not is_invincible:
@@ -345,11 +344,7 @@ def game_loop(level=1):
 
         # Avoid the center blocking region for the orb
         if (mx, my) in bad_tiles[level-1]:
-            # Ensure available_good_tiles[level-1] is a list of tuples
-            if isinstance(available_good_tiles[level-1], list):
-                mx, my = closest((mx, my), available_good_tiles[level-1])
-            else:
-                print("Error: available_good_tiles[level-1] is not a list.")
+            mx, my = closest((mx, my), available_good_tiles[level-1])
 
         # Clear the screen
         screen.fill(DARK_GREY)
@@ -441,6 +436,7 @@ def get_font(size): # Returns Press-Start-2P in the desired size
     return pygame.font.Font("Light-game/sprites/font.ttf", size)
 
 def main_menu():
+    main_music()
     global button_surface  # Declare button_surface as global if it's defined outside this function
     button_surface = pygame.image.load("Light-game/sprites/grey box.png")  # Ensure it's loaded here
     button_surface = pygame.transform.scale(button_surface, (SCREEN_WIDTH *0.7, SCREEN_HEIGHT / 10))  # Scale it here
@@ -570,11 +566,9 @@ def level_select():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if LEVEL_1_BUTTON.checkForInput(MENU_MOUSE_POS):
                     reset_game_state()
-                    main_music()
                     game_loop(level=1)  # Start level 1
                 if LEVEL_2_BUTTON.checkForInput(MENU_MOUSE_POS):
                     reset_game_state()
-                    main_music()
                     game_loop(level=2)  # Start level 2
                 if BACK_BUTTON.checkForInput(MENU_MOUSE_POS):
                     main_menu()  # Go back to main menu
