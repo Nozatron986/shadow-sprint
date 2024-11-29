@@ -24,6 +24,7 @@ SKY_BLUE = (105, 186, 255)
 DARK_GREY = (72, 72, 72)
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
 
 NUMBER_OF_GRIDS = 20
 GRID_SIZE = SCREEN_HEIGHT // NUMBER_OF_GRIDS
@@ -429,6 +430,40 @@ pygame.display.set_caption("Menu")
 BG = pygame.image.load("Light-game/sprites/Black.png")
 
 def tutorial():
+    tutorial_text = "You can control the orb with your mouse"
+    ORB_RECT = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT * 0.1)  # Create a rect for positioning
+    index = 0  # Initialize index for the text
+
+    while index <= len(tutorial_text):  # Loop until the entire text is displayed
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        screen.fill(BLACK)  # Clear the screen
+        ORB_TEXT = get_font(SCREEN_HEIGHT // 50).render(tutorial_text[:index], True, GREEN)  # Render text up to the current index
+        
+        # Center the text both horizontally and vertically
+        ORB_RECT.center = (SCREEN_WIDTH / 2 + 50, SCREEN_HEIGHT / 2)  # Updated to center vertically
+
+        # Get mouse position for orb movement
+        mx, my = pygame.mouse.get_pos()
+        mx //= GRID_SIZE
+        my //= GRID_SIZE
+
+        # Ensure the orb stays within the grid bounds
+        mx = max(0, min(mx, NUMBER_OF_GRIDS - 1))
+        my = max(0, min(my, NUMBER_OF_GRIDS - 1))
+
+        # Draw the orb at the mouse position
+        screen.blit(orbs[0], (mx * GRID_SIZE, my * GRID_SIZE))  # Assuming orbs[0] is the default orb image
+
+        screen.blit(ORB_TEXT, ORB_RECT)  # Draw the text on the screen
+        pygame.display.flip()  # Update the display
+
+        index += 1  # Move to the next character
+        time.sleep(0.1)  # Pause for a short duration to create the typewriter effect
+
     pygame.quit()
     sys.exit()
 
